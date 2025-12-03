@@ -182,7 +182,13 @@ debug_images/
 art_frame_api/storage/results/
 art_frame_api/storage/uploads/
 art_frame_api/storage/frames/
-art_frame_api/database/
+
+# Database: Include database files but exclude any images
+!art_frame_api/database/
+!art_frame_api/database/*.json
+art_frame_api/database/*.jpg
+art_frame_api/database/*.png
+art_frame_api/database/*.jpeg
 
 # Exclude generated coordinate and visual files
 *_coordinates.json

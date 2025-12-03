@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Frame Selector</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .instructions {
+            background: #e8f4fd;
+            border: 1px solid #bee5eb;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .instructions h3 {
+            margin-top: 0;
+            color: #0c5460;
+        }
+        .instructions ol {
+            margin-bottom: 10px;
+        }
+        .instructions li {
+            margin: 5px 0;
+        }
+        .keyboard-commands {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 5px;
+            padding: 10px;
+            margin-top: 10px;
+        }
+        .canvas-container {
+            text-align: center;
+            margin: 20px 0;
+        }
+        #frameCanvas {
+            border: 2px solid #ddd;
+            cursor: crosshair;
+            max-width: 100%;
+            height: auto;
+            border-radius: 5px;
+        }
+        .controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .btn {
+            padding: 10px 20px;
+            margin: 0 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+        .btn-secondary:hover {
+            background-color: #545b62;
+        }
+        .btn-success {
+            background-color: #28a745;
+            color: white;
+        }
+        .btn-success:hover {
+            background-color: #1e7e34;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .status-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .coordinates-info {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        .coordinates-info h4 {
+            margin-top: 0;
+        }
+        .coord-item {
+            margin: 5px 0;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Interactive Frame Selector</h1>
+            <p>Select frame corners with precision</p>
+        </div>
+        
+        <div class="instructions">
+            <h3>📋 Instructions</h3>
+            <p><strong>Click 4 corners of the frame in this exact order:</strong></p>
+            <ol>
+                <li><strong>Top-Left corner</strong> - Click the top-left corner of the frame</li>
+                <li><strong>Top-Right corner</strong> - Click the top-right corner of the frame</li>
+                <li><strong>Bottom-Right corner</strong> - Click the bottom-right corner of the frame</li>
+                <li><strong>Bottom-Left corner</strong> - Click the bottom-left corner of the frame</li>
+            </ol>
+            
+            <div class="keyboard-commands">
+                <strong>⌨️ Keyboard Commands:</strong>
+                <ul style="margin: 5px 0;">
+                    <li><strong>S</strong> - Save coordinates</li>
+                    <li><strong>R</strong> - Reset selection</li>
+                    <li><strong>ESC</strong> - Clear current selection</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="canvas-container">
+            <canvas id="frameCanvas" width="800" height="600"></canvas>
+        </div>
+        
+        <div class="controls">
+            <button class="btn btn-secondary" onclick="resetSelection()">🔄 Reset Selection (R)</button>
+            <button class="btn btn-success" onclick="saveCoordinates()" id="saveBtn" disabled>💾 Save Coordinates (S)</button>
+        </div>
+        
+        <div id="status" class="status status-info">
+            Click on the image to start selecting corners...
+        </div>
+        
+        <div class="coordinates-info" id="coordsInfo" style="display: none;">
+            <h4>📍 Selected Coordinates:</h4>
+            <div id="coordsList"></div>
+        </div>
+    </div>
+
+    <script>
+        let corners = [];
+        let imageLoaded = false;
+        let originalWidth = 0;
+        let originalHeight = 0;
+        const frameId = '__FRAME_ID__';
+        
+        const canvas = document.getElementById('frameCanvas');
+        const ctx = canvas.getContext('2d');
+        const statusDiv = document.getElementById('status');
+        const saveBtn = document.getElementById('saveBtn');
+        const coordsInfo = document.getElementById('coordsInfo');
+        const coordsList = document.getElementById('coordsList');
+        
+        const cornerLabels = ["Top-Left", "Top-Right", "Bottom-Right", "Bottom-Left"];
+        const cornerColors = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4"];
+        
+        // Load image information first
+        fetch(`/frames/${frameId}/info`)
+            .then(response => response.json())
+            .then(data => {
+                originalWidth = data.image_dimensions.width;
+                originalHeight = data.image_dimensions.height;
+                loadImage(data.image_url);
+            })
+            .catch(error => {
+                console.error('Error loading frame info:', error);
+                updateStatus('Error loading frame information', 'error');
+            });
+        
+        function loadImage(imageUrl) {
+            const img = new Image();
+            img.onload = function() {
+                // Calculate canvas size to maintain aspect ratio
+                const maxCanvasWidth = Math.min(800, window.innerWidth - 100);
+                const maxCanvasHeight = Math.min(600, window.innerHeight - 400);
+                
+                const aspectRatio = this.naturalWidth / this.naturalHeight;
+                let canvasWidth, canvasHeight;
+                
+                if (aspectRatio > maxCanvasWidth / maxCanvasHeight) {
+                    canvasWidth = maxCanvasWidth;
+                    canvasHeight = maxCanvasWidth / aspectRatio;
+                } else {
+                    canvasHeight = maxCanvasHeight;
+                    canvasWidth = maxCanvasHeight * aspectRatio;
+                }
+                
+                canvas.width = canvasWidth;
+                canvas.height = canvasHeight;
+                
+                ctx.drawImage(this, 0, 0, canvasWidth, canvasHeight);
+                imageLoaded = true;
+                updateStatus('Image loaded. Click to select corners...', 'info');
+            };
+            
+            img.onerror = function() {
+                updateStatus('Error loading image', 'error');
+            };
+            
+            img.src = imageUrl;
+        }
+        
+        canvas.addEventListener('click', function(e) {
+            if (!imageLoaded) return;
+            
+            if (corners.length < 4) {
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                // Convert canvas coordinates to original image coordinates
+                const originalX = Math.round((x / canvas.width) * originalWidth);
+                const originalY = Math.round((y / canvas.height) * originalHeight);
+                
+                corners.push([originalX, originalY]);
+                
+                // Draw point on canvas
+                ctx.fillStyle = cornerColors[corners.length - 1];
+                ctx.beginPath();
+                ctx.arc(x, y, 8, 0, 2 * Math.PI);
+                ctx.fill();
+                
+                // Draw number
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 14px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(corners.length.toString(), x, y + 5);
+                
+                // Draw label
+                ctx.fillStyle = cornerColors[corners.length - 1];
+                ctx.font = 'bold 12px Arial';
+                ctx.textAlign = 'left';
+                ctx.fillText(cornerLabels[corners.length - 1], x + 15, y - 10);
+                
+                console.log(`Corner ${corners.length} (${cornerLabels[corners.length - 1]}): (${originalX}, ${originalY})`);
+                
+                // Draw lines between points
+                if (corners.length > 1) {
+                    drawConnectingLines();
+                }
+                
+                // Close the quadrilateral when 4 points are selected
+                if (corners.length === 4) {
+                    drawConnectingLines();
+                    updateStatus('Frame selection complete! You can now save the coordinates.', 'success');
+                    saveBtn.disabled = false;
+                } else {
+                    updateStatus(`Selected ${corners.length}/4 corners. Click for ${cornerLabels[corners.length]}.`, 'info');
+                }
+                
+                updateCoordinatesDisplay();
+            } else {
+                updateStatus('All 4 corners selected. Reset to select again or save coordinates.', 'info');
+            }
+        });
+        
+        function drawConnectingLines() {
+            ctx.strokeStyle = '#007bff';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([5, 5]);
+            
+            ctx.beginPath();
+            for (let i = 0; i < corners.length; i++) {
+                const [origX, origY] = corners[i];
+                const canvasX = (origX / originalWidth) * canvas.width;
+                const canvasY = (origY / originalHeight) * canvas.height;
+                
+                if (i === 0) {
+                    ctx.moveTo(canvasX, canvasY);
+                } else {
+                    ctx.lineTo(canvasX, canvasY);
+                }
+            }
+            
+            // Close the shape if we have 4 points
+            if (corners.length === 4) {
+                ctx.closePath();
+            }
+            
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+        
+        function resetSelection() {
+            corners = [];
+            saveBtn.disabled = true;
+            coordsInfo.style.display = 'none';
+            
+            // Reload the image properly
+            fetch(`/frames/${frameId}/info`)
+                .then(response => response.json())
+                .then(data => {
+                    const img = new Image();
+                    img.onload = function() {
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        ctx.drawImage(this, 0, 0, canvas.width, canvas.height);
+                    };
+                    img.src = data.image_url;
+                });
+            
+            updateStatus('Selection reset. Click to select corners...', 'info');
+            console.log('Selection reset');
+        }
+        
+        function saveCoordinates() {
+            if (corners.length !== 4) {
+                updateStatus('Please select all 4 corners before saving.', 'error');
+                return;
+            }
+            
+            const coordinatesData = {
+                coordinates: {
+                    top_left: corners[0],
+                    top_right: corners[1],
+                    bottom_right: corners[2],
+                    bottom_left: corners[3]
+                }
+            };
+            
+            updateStatus('Saving coordinates...', 'info');
+            
+            fetch(`/frames/${frameId}/coordinates`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(coordinatesData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.coordinates_saved) {
+                    updateStatus('✅ Coordinates saved successfully! Visual representation created.', 'success');
+                    console.log('Coordinates saved successfully!');
+                    
+                    // Optionally redirect or show success message
+                    setTimeout(() => {
+                        if (confirm('Coordinates saved! Would you like to go back to the frames list?')) {
+                            window.location.href = '/frames/manage';
+                        }
+                    }, 2000);
+                } else {
+                    updateStatus('❌ Error saving coordinates. Please try again.', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error saving coordinates:', error);
+                updateStatus('❌ Error saving coordinates. Please try again.', 'error');
+            });
+        }
+        
+        function updateStatus(message, type) {
+            statusDiv.textContent = message;
+            statusDiv.className = `status status-${type}`;
+        }
+        
+        function updateCoordinatesDisplay() {
+            if (corners.length === 0) {
+                coordsInfo.style.display = 'none';
+                return;
+            }
+            
+            coordsInfo.style.display = 'block';
+            coordsList.innerHTML = '';
+            
+            corners.forEach((corner, index) => {
+                const div = document.createElement('div');
+                div.className = 'coord-item';
+                div.style.color = cornerColors[index];
+                div.innerHTML = `<strong>${index + 1}. ${cornerLabels[index]}:</strong> (${corner[0]}, ${corner[1]})`;
+                coordsList.appendChild(div);
+            });
+        }
+        
+        // Keyboard event handlers
+        document.addEventListener('keydown', function(e) {
+            switch(e.key.toLowerCase()) {
+                case 's':
+                    e.preventDefault();
+                    saveCoordinates();
+                    break;
+                case 'r':
+                    e.preventDefault();
+                    resetSelection();
+                    break;
+                case 'escape':
+                    e.preventDefault();
+                    resetSelection();
+                    break;
+            }
+        });
+        
+        // Add focus to enable keyboard events
+        window.addEventListener('load', function() {
+            document.body.setAttribute('tabindex', '0');
+            document.body.focus();
+        });
+    </script>
+</body>
+</html>

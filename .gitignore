@@ -175,6 +175,35 @@ pyrightconfig.json
 
 # End of https://www.toptal.com/developers/gitignore/api/python
 
+# Art Frame Processing - Generated/Output Files
+# Exclude all result images and processed artwork
+output/
+debug_images/
+art_frame_api/storage/results/
+art_frame_api/storage/uploads/
+art_frame_api/storage/frames/
+art_frame_api/database/
+
+# Exclude generated coordinate and visual files
+*_coordinates.json
+*_visual.jpg
+*_visual.png
+frame_coordinates_visual.jpg
+final_result.jpg
+
+# Keep directory structure but ignore contents
+art_frame_api/storage/results/*
+art_frame_api/storage/uploads/*
+art_frame_api/storage/frames/*
+!art_frame_api/storage/results/.gitkeep
+!art_frame_api/storage/uploads/.gitkeep
+!art_frame_api/storage/frames/.gitkeep
+
+# Exclude large test images and generated content
+test_artwork.jpg
+framed_*.jpg
+framed_*.png
+framed_*.jpeg
 
 #Ignore vscode AI rules
 .github/instructions/codacy.instructions.md
